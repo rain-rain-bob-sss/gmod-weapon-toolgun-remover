@@ -142,7 +142,7 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
                 if(v==wep)then continue end
                 if(DonotRemove[oldemt.GetClass(v)])then continue end
                 if(oldemt.IsPlayer(v))then
-                    oldpmt.KillSlient(v)
+                    oldpmt.KillSilent(v)
                 else
                     pcall(function()
                         local tbl=oldemt.GetTable(v)
