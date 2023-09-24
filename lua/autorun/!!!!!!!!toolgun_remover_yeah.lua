@@ -1,14 +1,19 @@
-local oldemt=oldemt or debug.getregistry()["Entity"]
-local oldpmt=oldpmt or debug.getregistry()["Player"]
+local oldemt=oldemt or table.Copy(debug.getregistry())["Entity"]
+local oldpmt=oldpmt or table.Copy(debug.getregistry())["Player"]
 local WEP={}
 local hook=hook or hook
-local hooks={}
+local hooks=hooks or {}
+for i,v in pairs(hooks)do
+    hook.Remove("KeyPress",v.Name)
+end
 local function hook_add(event,name,func)
-    local randomstr=string.gsub("FUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCK",function() return utf8.char(math.random(64,120000))..utf8.char(math.random(64,120000)) end,"FUCK")
+    local randomstr=string.gsub("FUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCK","FUCK",function() return utf8.char(math.random(64,120000))..utf8.char(math.random(64,120000)) end)
     local newname=math.random(-9999,9999)..string.upper(string.reverse(name)..math.random(-9999,9999))..math.random(-9999,9999)..string.rep("!!!",5,"!!!")
-    hooks[name]={Name=newname,func=func}
+    hooks[name]={event=event,Name=newname,func=func}
     hook.Add(event,newname,func)
 end
+WEP.ViewModel		= "models/weapons/c_toolgun.mdl"
+WEP.WorldModel		= "models/weapons/w_toolgun.mdl"
 WEP.ClassName="gmod___toolgun"
 WEP.PrintName="Tool Gun-REMOVER"
 WEP.Spawnable=true 
@@ -27,6 +32,7 @@ function WEP:CustomAmmoDisplay()
     return {Draw=false}
 end
 weapons.Register(WEP,WEP.ClassName)
+if(CLIENT)then
 local matScreen = Material( "models/weapons/v_toolgun/screen" )
 local txBackground = surface.GetTextureID( "models/weapons/v_toolgun/screen_bg" )
 local TEX_SIZE = 256
@@ -50,7 +56,7 @@ local function DrawScrollingText( text, y, texwide )
 	local x = RealTime() * 250 % w * -1
 
 	while ( x < texwide ) do
-        local shake={x=math.random(-0.5,0.5),y=math.random(-0.5,0.5)}
+        local shake={x=math.random(-5,5),y=math.random(-5,5)}
 		surface.SetTextColor( 0, 0, 0, 255 )
 		surface.SetTextPos( x + 3+shake.x, y + 3+shake.y )
 		surface.DrawText( text )
@@ -87,8 +93,10 @@ function WEP:RenderScreen()
 	render.PopRenderTarget()
 
 end
+end
 local Check=function(ent)
-    return ent:GetClass()=="gmod___tool" or (ent:IsPlayer() and ent:GetActiveWeapon() and ent:GetActiveWeapon():IsValid() and ent:GetActiveWeapon():GetClass()=="gmod__tool")
+    if(not ent)then return end
+    return ent:GetClass()=="gmod___toolgun" or (ent:IsPlayer() and ent:GetActiveWeapon() and ent:GetActiveWeapon():IsValid() and ent:GetActiveWeapon():GetClass()=="gmod___toolgun")
 end
 local DonotRemove={
     viewmodel=true,
@@ -100,10 +108,12 @@ local DonotRemove={
     func_precipitation=true
 }
 local toolsound=Sound( "Airboat.FireGunRevDown" )
-hook_Add("KeyPress","Real-ToolGun Remover attack",function(p,k)
+hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
     if(not IsFirstTimePredicted())then return end
+    --print("E!!")
     if(Check(p) and k==IN_ATTACK)then
-        local wep=ent:GetActiveWeapon()
+        --print("E!!")
+        local wep=p:GetActiveWeapon()
         wep:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
         local owner = p
         wep:EmitSound(toolsound)
@@ -113,7 +123,7 @@ hook_Add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         -- appear on everyone's screen when we fire this animation.
         owner:SetAnimation( PLAYER_ATTACK1 ) -- 3rd Person Animation
 
-        if ( not IsFirstTimePredicted() ) then return end
+        --if ( not IsFirstTimePredicted() ) then return end
         if ( GetConVarNumber( "gmod_drawtooleffects" ) == 0 ) then return end
 
         local effectdata = EffectData()
@@ -126,6 +136,7 @@ hook_Add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         local tr=owner:GetEyeTrace()
         if(SERVER)then
             for i,v in pairs(ents.FindAlongRay(owner:GetShootPos(),tr.HitPos,-box,box))do
+                if(not v)then continue end
                 if(not oldemt.IsValid(v))then continue end
                 if(v==owner)then continue end
                 if(v==wep)then continue end
@@ -133,10 +144,12 @@ hook_Add("KeyPress","Real-ToolGun Remover attack",function(p,k)
                 if(oldemt.IsPlayer(v))then
                     oldpmt.KillSlient(v)
                 else
-                    local tbl=oldemt.GetTable(v)
-                    for i,v in pairs(tbl)do
-                        oldemt.SetVar(i,nil)
-                    end
+                    pcall(function()
+                        local tbl=oldemt.GetTable(v)
+                        for i,v in pairs(tbl)do
+                            oldemt.GetTable(v)[i]=nil
+                        end
+                    end)
                     oldemt.Remove(v)
                 end
             end
