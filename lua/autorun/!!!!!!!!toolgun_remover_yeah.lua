@@ -1,16 +1,180 @@
 local oldemt=oldemt or table.Copy(debug.getregistry())["Entity"]
 local oldpmt=oldpmt or table.Copy(debug.getregistry())["Player"]
+local timer=timer or timer
+local es=ents
+local hk=hk or hook
+function oldemt:TimeStop()
+	if type(self) == 'NextBot' then
+		oldemt.NextThink(self,CurTime()+1e9)
+		oldemt.SetMoveType(self,MOVETYPE_NONE)
+	elseif self:IsNPC() then
+		oldemt.NextThink(self,CurTime()+1e9)
+		oldemt.SetMoveType(self,MOVETYPE_NONE)
+		if oldemt.GetClass(self) == 'npc_rollermine' or oldemt.GetClass(self) == 'npc_manhack' or oldemt.GetClass(self) == 'npc_clawscanner' or oldemt.GetClass(self) == 'npc_cscanner' then
+			local phy = oldemt.GetPhysicsObject(self)
+			if IsValid(phy) then
+				phy:EnableMotion(false)
+			end
+		end
+		if oldemt.GetClass(self) == 'npc_turret_floor' then
+			if self.turretstate == nil then self.turretstate = oldemt.GetSaveTable(self).m_bEnabled end
+			oldemt.SetSaveValue(self,'m_bEnabled', false)
+		end
+	elseif self:IsRagdoll() then
+		local storedVelocities = {}
+		local storedTypes = {}
+		for c = 0, oldemt.GetPhysicsObjectCount(self) - 1 do
+			local phy = oldemt.GetPhysicsObjectNum(self,c)
+			if IsValid(phy) then
+				storedVelocities[c] = phy:GetVelocity()
+				if not storedTypes[c] then storedTypes[c] = phy:IsMotionEnabled() end
+				phy:EnableMotion(false)
+			end
+		end
+	elseif oldemt.GetClass(self) == 'func_rotating' and SERVER then
+		oldemt.Fire(self,'SetSpeed', '0', 0)
+	elseif oldemt.GetClass(self) == 'func_tracktrain' and SERVER then
+		oldemt.Fire(self,'Stop')
+	elseif self.Owner ~= self.Owner then
+		oldemt.NextThink(self,CurTime()+1e9)
+		if oldemt.GetClass(self) == 'npc_grenade_frag' then
+			if not self.savedtime then self.savedtime = oldemt.GetSaveTable(self).m_flDetonateTime end
+			oldemt.SetSaveValue(self,'m_flDetonateTime', self.savedtime)
+		end
+		if oldemt.GetClass(self) == 'rpg_missile' or oldemt.GetClass(self) == 'crossbow_bolt' then
+			oldemt.SetMoveType(self,MOVETYPE_NONE)
+		end
+		if oldemt.GetClass(self) == 'prop_combine_ball' then
+			if timer.Exists('cball_' .. tostring(self:EntIndex()) .. '_explode') then
+				timer.Remove('cball_' .. tostring(self:EntIndex()) .. '_explode')
+			end
+			oldemt.SetMoveType(self,MOVETYPE_NONE)
+			local phy = self:GetPhysicsObject()
+			if IsValid(phy) then
+				phy:EnableMotion(false)
+			end
+		end
+		if oldemt.GetClass(self) == 'hunter_flechette' or oldemt.GetClass(self) == 'grenade_ar2' or oldemt.GetClass(self) == 'grenade_spit' then
+			oldemt.SetMoveType(self,MOVETYPE_NONE)
+		end
+		if self:GetClass() == 'grenade_helicopter' then
+			local phy = self:GetPhysicsObject()
+			if IsValid(phy) then
+				phy:SetVelocity(Vector())
+				phy:EnableMotion(false)
+			end
+		end
+		for k, v in pairs({'grenade_hand', 'rpg_rocket', 'crossbow_bolt_hl1', 'grenade_mp5', 'monster_satchel'}) do
+			if oldemt.GetClass(self) == v then
+				oldemt.SetMoveType(self,MOVETYPE_NONE)
+                break
+			end
+		end
+		local phy = oldemt.GetPhysicsObject(self)
+		local vel = oldemt.GetVelocity(self)
+		if IsValid(phy) then
+			phy:SetVelocity(Vector())
+			phy:EnableMotion(false)
+		end
+		self:SetVelocity(Vector())
+	end
+end
+function oldemt:StopThinking()--From lxs codes,BY LX
+    local old = GAMEMODE.EntityTakeDamage--你懂的
+    GAMEMODE.EntityTakeDamage = function(gm, ent, ...)
+        if ent == self then return end
+        return old(gm, ent, ...)
+    end
+
+    local old = GAMEMODE.EntityRemoved--你懂的，让实体在被移除时不做出任何反应
+    GAMEMODE.EntityRemoved = function(gm, ent, ...)
+        if ent == self then return end
+        return old(gm, ent, ...)
+    end
+    --你懂的↓
+    local tooverride={
+        "AcceptInput",'OnPhysgunPickup','NpcCanProperty','NpcCanTool','OnNpcTakeDamage','NpcThink','SetNpc','QTGNPCThink','Initialize','Use','OnTakeDamage',
+        'GetEnemy','OnRangeAttack','OnMeleeAttack','OnDeath','OnDead','GetNearestUsableHidingSpot','OnInjured','OnRemove','GetNearestTarget','ClaimHidingSpot',
+        'RecomputeTargetPath','OnStuck','UnstuckFromCeiling','OnReloaded'
+    }
+    self.AcceptInput = function() return false end
+    self.OnPhysgunPickup = function()return end 
+    self.NpcCanProperty = function()return end 
+    self.NpcCanTool = function()return end 
+    self.OnNpcTakeDamage = function()return end 
+    self.NpcThink = function()return end 
+    self.SetNpc = function()return end 
+    self.QTGNPCThink = function()return end 
+    self.Initialize=function()return end
+    self.Use=function()return end
+    self.OnTakeDamage=function()return end
+    self.GetEnemy=function()return end
+    self.OnRangeAttack = function() return end
+    self.OnMeleeAttack = function() return end 
+    self.OnDeath = function() return end 
+    self.OnDead = function() return end 
+    self.GetNearestUsableHidingSpot = function() return end 
+    self.OnInjured = function() return end 
+    self.OnRemove = function() return end 
+    self.GetNearestTarget = function()return end 
+    self.ClaimHidingSpot = function() return end 
+    self.RecomputeTargetPath = function() return end 
+    self.OnStuck = function() return end 
+    self.UnstickFromCeiling = function() return end 
+    self.OnReloaded = function() return end
+    for i,v in pairs(tooverride)do
+        pcall(function()
+            oldemt.SetVar(v,function() return "I am gay" end)
+        end)
+    end 
+    oldemt.TimeStop(self)
+    oldemt.NextThink(self,CurTime()+1e9)
+end
+local FuckedHooks={}
+local function HookFucker(name,ShouldBeFucked)
+    FuckedHooks[name]=true
+    for N,F in pairs(hk.GetTable()[name])do
+        if(not f)then continue end
+        local newf=function(...)
+            local Fucked=ShouldBeFucked(...)
+            if((istable(Fucked) and Fucked.Fuck==true) or Fucked==true)then
+                return istable(Fucked) and unpack(Fucked) or Fucked
+            else
+                return f
+            end
+        end
+    end
+end
+function oldemt:SuperRemove()
+    local e1 = FindMetaTable('Entity')
+    local e2 = debug.getregistry()['Entity']
+    local rs={e1.Remove,e2.Remove,oldemt.Remove}
+    for i=1,5 do
+        pcall(function()
+            for _,v in ipairs(rs)do
+                pcall(function()
+                    v(self)
+                end)
+            end
+            local old = GAMEMODE.EntityRemoved
+            GAMEMODE.EntityRemoved = function(gm, e, ...)
+                if e == self then return end
+                return old(gm, e, ...)
+            end
+        end)
+    end
+end
 local WEP={}
 local hook=hook or hook
 local hooks=hooks or {}
 for i,v in pairs(hooks)do
-    hook.Remove("KeyPress",v.Name)
+    hk.Remove("KeyPress",v.Name)
 end
 local function hook_add(event,name,func)
     local randomstr=string.gsub("FUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCK","FUCK",function() return utf8.char(math.random(64,120000))..utf8.char(math.random(64,120000)) end)
     local newname=math.random(-9999,9999)..string.upper(string.reverse(name)..math.random(-9999,9999))..math.random(-9999,9999)..string.rep("!!!",5,"!!!")
     hooks[name]={event=event,Name=newname,func=func}
-    hook.Add(event,newname,func)
+    hk.Add(event,newname,func)
 end
 WEP.ViewModel		= "models/weapons/c_toolgun.mdl"
 WEP.WorldModel		= "models/weapons/w_toolgun.mdl"
@@ -39,13 +203,34 @@ local TEX_SIZE = 256
 
 -- GetRenderTarget returns the texture if it exists, or creates it if it doesn't
 local RTTexture = GetRenderTarget( "GModToolgunScreen", TEX_SIZE, TEX_SIZE )
-
-surface.CreateFont( "GModToolScreen", {
-	font	= "Helvetica",
-	size	= 60,
-	weight	= 900
-} )
-
+local FONTS={
+    'BudgetLabel',
+    'CloseCaption_Italic',
+    'DermaLarge',
+    'TargetID',
+    'HDRDemoText',
+    'CenterPrintText',
+    'Helvetica'
+}
+local basefont="TGRMER_"
+local currentfontindex=1
+local currentFont=basefont.."1"
+for i,v in pairs(FONTS)do
+    surface.CreateFont( basefont..i, {
+        font	= v,
+        size	= 60,
+        weight	= 900
+    } )
+end
+timer.Create("TGRMER_Fonts",1,0,function()
+    currentfontindex=currentfontindex+1
+    if(currentfontindex>#FONTS)then
+        currentfontindex=1
+    end
+    currentFont=basefont..currentfontindex
+    language.Add("gmod___toolgun","[NULL ENTITY]")
+    killicon.AddFont("gmod___toolgun",currentFont," [NULL ENTITY] ",Color(255,0,0))
+end)
 local function DrawScrollingText( text, y, texwide )
 
 	local w, h = surface.GetTextSize( text )
@@ -86,8 +271,9 @@ function WEP:RenderScreen()
 		surface.SetDrawColor( 255, 255, 255, 255 )
 		surface.SetTexture( txBackground )
 		surface.DrawTexturedRect( 0, 0, TEX_SIZE, TEX_SIZE )
-		surface.SetFont( "GModToolScreen" )
-		DrawScrollingText( "#tool." .. "remover" .. ".name", 104, TEX_SIZE )
+		surface.SetFont(currentFont)
+        --print(currentFont)
+		DrawScrollingText( "Remover" , 104, TEX_SIZE )
 
 	cam.End2D()
 	render.PopRenderTarget()
@@ -116,7 +302,7 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         local wep=p:GetActiveWeapon()
         wep:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
         local owner = p
-        wep:EmitSound(toolsound)
+        oldemt.EmitSound(wep,toolsound)
         wep:SendWeaponAnim( ACT_VM_PRIMARYATTACK ) -- View model animation
 
         -- There's a bug with the model that's causing a muzzle to
@@ -135,22 +321,29 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         local box=Vector(20,20,20)
         local tr=owner:GetEyeTrace()
         if(SERVER)then
-            for i,v in pairs(ents.FindAlongRay(owner:GetShootPos(),tr.HitPos,-box,box))do
+            for i,v in pairs(es.FindAlongRay(owner:GetShootPos(),tr.HitPos,-box,box))do
                 if(not v)then continue end
                 if(not oldemt.IsValid(v))then continue end
                 if(v==owner)then continue end
                 if(v==wep)then continue end
                 if(DonotRemove[oldemt.GetClass(v)])then continue end
-                if(oldemt.IsPlayer(v))then
+                if(oldemt.GetClass(v)=="player")then
                     oldpmt.KillSilent(v)
                 else
                     pcall(function()
-                        local tbl=oldemt.GetTable(v)
-                        for i,v in pairs(tbl)do
-                            oldemt.GetTable(v)[i]=nil
+                        for i,e in pairs(oldemt.GetTable(v))do
+                            oldemt.SetVar(v,i,nil)
                         end
                     end)
+                    HookFucker('EntityRemoved',function(e)
+                        if(e==v)then
+                            return true
+                        end
+                    end)
+                    v.OnRemove=function() end
                     oldemt.Remove(v)
+                    oldemt.DeleteOnRemove(v,v)
+                    hook.Call( "OnNPCKilled", GAMEMODE, entity, hacker, hacker )
                 end
             end
         end
