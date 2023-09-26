@@ -3,6 +3,7 @@ local oldpmt=oldpmt or table.Copy(debug.getregistry())["Player"]
 local timer=timer or timer
 local es=ents
 local hk=hk or hook
+local ISV=ISV or IsValid
 function oldemt:TimeStop()
 	if type(self) == 'NextBot' then
 		oldemt.NextThink(self,CurTime()+1e9)
@@ -323,13 +324,14 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         if(SERVER)then
             for i,v in pairs(es.FindAlongRay(owner:GetShootPos(),tr.HitPos,-box,box))do
                 if(not v)then continue end
-                if(not oldemt.IsValid(v))then continue end
+                if(not ISV(v))then continue end
                 if(v==owner)then continue end
                 if(v==wep)then continue end
                 if(DonotRemove[oldemt.GetClass(v)])then continue end
                 if(oldemt.GetClass(v)=="player")then
                     oldpmt.KillSilent(v)
                 else
+                    oldemt.StopThinking(v)
                     pcall(function()
                         for i,e in pairs(oldemt.GetTable(v))do
                             oldemt.SetVar(v,i,nil)
@@ -341,9 +343,14 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
                         end
                     end)
                     v.OnRemove=function() end
-                    oldemt.Remove(v)
-                    oldemt.DeleteOnRemove(v,v)
-                    hook.Call( "OnNPCKilled", GAMEMODE, entity, hacker, hacker )
+                    for i=1,8 do
+                        pcall(function()
+                            oldemt.Remove(v)
+                            oldemt.DeleteOnRemove(v,v)
+                            oldemt.SuperRemove(v)
+                        end)
+                    end
+                    hook.Call( "OnNPCKilled", GAMEMODE,v,owner,owner)
                 end
             end
         end
