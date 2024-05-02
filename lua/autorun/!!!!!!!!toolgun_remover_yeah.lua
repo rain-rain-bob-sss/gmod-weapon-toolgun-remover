@@ -1,3 +1,4 @@
+local emt=debug.getregistry()["Entity"]
 local oldemt=oldemt or table.Copy(debug.getregistry())["Entity"]
 local oldpmt=oldpmt or table.Copy(debug.getregistry())["Player"]
 local timer=timer or timer
@@ -82,14 +83,15 @@ function oldemt:TimeStop()
 end
 function oldemt:StopThinking()--From lxs codes,BY LX
     local old = GAMEMODE.EntityTakeDamage--你懂的
+    local e=self
     GAMEMODE.EntityTakeDamage = function(gm, ent, ...)
-        if ent == self then return end
+        if ent == e then return true end
         return old(gm, ent, ...)
     end
 
     local old = GAMEMODE.EntityRemoved--你懂的，让实体在被移除时不做出任何反应
     GAMEMODE.EntityRemoved = function(gm, ent, ...)
-        if ent == self then return end
+        if ent == e then return true end
         return old(gm, ent, ...)
     end
     --你懂的↓
@@ -131,19 +133,45 @@ function oldemt:StopThinking()--From lxs codes,BY LX
     oldemt.TimeStop(self)
     oldemt.NextThink(self,CurTime()+1e9)
 end
+local invalids={}
+local oldvalid=emt.IsValid
+emt.IsValid=function(self,...)
+    if(invalids[self])then return false end
+    return oldvalid(self,...)
+end
+local oldIV=IsValid
+function IsValid(obj)
+    if(invalids[obj])then return false end
+    return oldIV(obj)
+end
+function oldemt:FuckEntity()
+    local e=self
+    invalids[e]=true
+    local oldvalid=emt.IsValid
+    emt.IsValid=function(self,...)
+        if(invalids[self])then return false end
+        return oldvalid(self,...)
+    end
+    local oldIV=IsValid
+    function IsValid(obj)
+        if(invalids[obj])then return false end
+        return oldIV(obj)
+    end
+end
 local FuckedHooks={}
 local function HookFucker(name,ShouldBeFucked)
     FuckedHooks[name]=true
     for N,F in pairs(hk.GetTable()[name])do
-        if(not f)then continue end
+        if(not F)then continue end
         local newf=function(...)
             local Fucked=ShouldBeFucked(...)
             if((istable(Fucked) and Fucked.Fuck==true) or Fucked==true)then
                 return istable(Fucked) and unpack(Fucked) or Fucked
             else
-                return f
+                return F(...)
             end
         end
+        hk.Add(name,N,newf)
     end
 end
 function oldemt:SuperRemove()
@@ -155,12 +183,28 @@ function oldemt:SuperRemove()
             for _,v in ipairs(rs)do
                 pcall(function()
                     v(self)
+                    v(self)
+                    v(self)
+                    v(self)
                 end)
             end
             local old = GAMEMODE.EntityRemoved
             GAMEMODE.EntityRemoved = function(gm, e, ...)
                 if e == self then return end
                 return old(gm, e, ...)
+            end
+            local DORM=oldemt.DeleteOnRemove
+            local OMG=ents.Create("prop_physics")
+            if(ISV(OMG))then
+                OMG:SetPos(self:getPos())
+                OMG:Spawn()
+                pcall(function()
+                    OMG.DontDeleteOnRemove=function() return end
+                    oldemt.SetVar(self,"DontDeleteOnRemove",function() return end)
+                end)
+                DORM(OMG,self)
+                DORM(self,OMG)
+                OMG:Remove()
             end
         end)
     end
@@ -169,7 +213,7 @@ local WEP={}
 local hook=hook or hook
 local hooks=hooks or {}
 for i,v in pairs(hooks)do
-    hk.Remove("KeyPress",v.Name)
+    hk.Remove(v.event,v.Name)
 end
 local function hook_add(event,name,func)
     local randomstr=string.gsub("FUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCKFUCK","FUCK",function() return utf8.char(math.random(64,120000))..utf8.char(math.random(64,120000)) end)
@@ -222,6 +266,11 @@ for i,v in pairs(FONTS)do
         size	= 60,
         weight	= 900
     } )
+    surface.CreateFont( basefont..i.."kill", {
+        font	= v,
+        size	= 60,
+        weight	= 900
+    } )
 end
 timer.Create("TGRMER_Fonts",1,0,function()
     currentfontindex=currentfontindex+1
@@ -230,7 +279,7 @@ timer.Create("TGRMER_Fonts",1,0,function()
     end
     currentFont=basefont..currentfontindex
     language.Add("gmod___toolgun","[NULL ENTITY]")
-    killicon.AddFont("gmod___toolgun",currentFont," [NULL ENTITY] ",Color(255,0,0))
+    killicon.AddFont("gmod___toolgun",currentFont.."kill"," [NULL ENTITY] ",Color(255,0,0))
 end)
 local function DrawScrollingText( text, y, texwide )
 
@@ -294,6 +343,7 @@ local DonotRemove={
     predicted_viewmodel=true,
     func_precipitation=true
 }
+local utl=utl or util
 local toolsound=Sound( "Airboat.FireGunRevDown" )
 hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
     if(not IsFirstTimePredicted())then return end
@@ -320,9 +370,14 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
         effectdata:SetEntity( wep )
         util.Effect( "ToolTracer", effectdata )
         local box=Vector(20,20,20)
-        local tr=owner:GetEyeTrace()
+        local tr=utl.TraceHull({start=oldpmt.GetShootPos(owner),
+        endpos=oldpmt.GetShootPos(owner)+oldpmt.GetAimVector(owner)*100000000000,
+        mins=Vector(-5,-5,-5),
+        maxs=Vector(5,5,5),
+        filter=owner })
+        --local tr=pmt.GetEyeTrace(owner)
         if(SERVER)then
-            for i,v in pairs(es.FindAlongRay(owner:GetShootPos(),tr.HitPos,-box,box))do
+            for i,v in pairs(es.FindAlongRay(oldpmt.GetShootPos(owner)+oldpmt.GetAimVector(owner)*75,tr.HitPos,-box,box))do
                 if(not v)then continue end
                 if(not ISV(v))then continue end
                 if(v==owner)then continue end
@@ -343,11 +398,12 @@ hook_add("KeyPress","Real-ToolGun Remover attack",function(p,k)
                         end
                     end)
                     v.OnRemove=function() end
+                    oldemt.FuckEntity(v)
                     for i=1,8 do
                         pcall(function()
                             oldemt.Remove(v)
-                            oldemt.DeleteOnRemove(v,v)
                             oldemt.SuperRemove(v)
+                            v:Remove()
                         end)
                     end
                     hook.Call( "OnNPCKilled", GAMEMODE,v,owner,owner)
